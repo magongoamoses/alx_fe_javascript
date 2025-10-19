@@ -459,7 +459,7 @@ async function syncWithServer({ pushLocal = true } = {}) {
         populateCategories();
 
         const now = new Date().toLocaleString();
-        setSyncStatus(now);
+        setSyncStatus("Quotes synced with server!");
 
         if (pendingConflicts.length > 0) {
             showConflictsNotification(pendingConflicts.length);
