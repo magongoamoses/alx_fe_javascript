@@ -62,6 +62,24 @@
         <input type="file" id="importFile" accept=".json" />
     </div>
 
+    <!-- Sync controls / notifications -->
+     <div id="syncControls" style="margin-top:12px;">
+        <button id="syncButton">Sync Now</button>
+        <span id="syncStatus" class="muted" style="margin-left:10px;">Last sync: never</span>
+        <button id="reviewConflictsBtn" style="margin-left:10px; display:none;">Review Conflicts</button>
+    </div>
+    
+    <!-- Conflicts review modal / panel -->
+    <div id="conflictsPanel" style="display:none; margin-top:10px; border:1px solid #ddd; padding:10px; border-radius:8px; background:#fff;">
+        <h4>Conflicts detected</h4>
+        <div id="conflictsList" style="max-height:200px; overflow:auto;"></div>
+        <div style="margin-top:8px;">
+            <button id="acceptAllServer">Accept All Server</button>
+            <button id="keepAllLocal" style="margin-left:8px;">Keep All Local</button>
+            <button id="closeConflicts" style="margin-left:8px;">Close</button>
+        </div>
+    </div>
+
     <hr>
 
     <!-- Quote Form -->
