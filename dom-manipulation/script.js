@@ -13,7 +13,7 @@ const DEFAULT_QUOTES = [
 // ---- DOM references ----
 const quoteDisplay = document.getElementById("quoteDisplay");
 const newQuoteBtn = document.getElementById("newQuote");
-const categorySelect = document.getElementById("categorySelect");
+const categorySelect = document.getElementById("categoryFilter"); 
 const addQuoteContainer = document.getElementById("addQuoteContainer");
 const exportJsonBtn = document.getElementById("exportJson");
 const triggerImportBtn = document.getElementById("triggerImport");
@@ -26,7 +26,7 @@ let quotes = [];
 // ---- Initialization ----
 document.addEventListener("DOMContentLoaded", () => {
   loadQuotesFromLocalStorage();
-  populateCategoryDropdown();
+  populateCategories();           
   createAddQuoteForm();
   restoreLastSelectedFilter();
   restoreLastViewedFromSession();
@@ -117,7 +117,7 @@ function getCategories() {
 }
 
 // ---- Category dropdown ----
-function populateCategoryDropdown() {
+function populateCategories() {
   const cats = getCategories();
   categorySelect.innerHTML = "";
 
@@ -235,7 +235,7 @@ function addQuote(quoteObj, updateUI = false) {
   }
   quotes.push({ text: quoteObj.text.trim(), category: quoteObj.category.trim() });
   saveQuotesToLocalStorage();
-  if (updateUI) populateCategoryDropdown();
+  if (updateUI) populateCategories();
 }
 
 // ---- Export JSON ----
@@ -288,7 +288,7 @@ function importFromJsonFile(event) {
       } else {
         quotes.push(...newOnes);
         saveQuotesToLocalStorage();
-        populateCategoryDropdown();
+        populateCategories(); 
         alert(`Imported ${newOnes.length} new quote(s).`);
       }
     } catch (err) {
