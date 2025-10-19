@@ -1,6 +1,7 @@
 // ---- Data or Storage keys ----
-const STORAGE_KEY = "dqg_quotes_v1"; 
+const STORAGE_KEY = "dqg_quotes_v2"; 
 const SESSION_LAST_VIEWED = "dqg_last_viewed";
+const STORAGE_LAST_FILTER = "dqg_last_filter";
 
 // ---- Default quotes ----
 const DEFAULT_QUOTES = [
@@ -26,12 +27,13 @@ let quotes = [];
 document.addEventListener("DOMContentLoaded", () => {
     loadQuotesFromLocalStorage();
     populateCategoryDropdown();
+    restoreLastSelectedFilter(); 
     createAddQuoteForm();
     showRandomQuote();
 
     // Wire events
     newQuoteBtn.addEventListener("click", showRandomQuote);
-    categorySelect.addEventListener("change", showRandomQuote);
+    categorySelect.addEventListener("change", onCategoryChange);
     exportJsonBtn.addEventListener("click", exportToJson);
     triggerImportBtn.addEventListener("click", () => importFileInput.click());
     importFileInput.addEventListener("change", importFromJsonFile);
@@ -41,7 +43,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ---- Local storage helpers ----
 function saveQuotesToLocalStorage() {
     try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(quotes));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(quotes));
     } catch (err) {
         console.error("Failed to save quotes to localStorage:", err);
     }
@@ -51,19 +53,17 @@ function loadQuotesFromLocalStorage() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
         try {
-        const parsed = JSON.parse(raw);
-        // Basic validation
-        if (Array.isArray(parsed) && parsed.every(isValidQuote)) {
-            quotes = parsed;
-            return;
-        } else {
-            console.warn("Storage contained invalid format — resetting to defaults.");
-        }
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.every(isValidQuote)) {
+                quotes = parsed;
+                return;
+            } else {
+                console.warn("Storage contained invalid format — resetting to defaults.");
+            }
         } catch (err) {
-        console.warn("Failed to parse stored quotes — resetting to defaults.", err);
+            console.warn("Failed to parse stored quotes — resetting to defaults.", err);
         }
     }
-    // fallback
     quotes = [...DEFAULT_QUOTES];
     saveQuotesToLocalStorage();
 }
@@ -84,27 +84,28 @@ function restoreLastViewedFromSession() {
     try {
         const q = JSON.parse(raw);
         if (isValidQuote(q)) {
-        lastViewedSpan.textContent = `"${q.text}" (${q.category})`;
+            lastViewedSpan.textContent = `"${q.text}" (${q.category})`;
         } else {
-        lastViewedSpan.textContent = "none";
+            lastViewedSpan.textContent = "none";
         }
     } catch {
         lastViewedSpan.textContent = "none";
     }
-    }
+}
 
-    // ---- Utilities ----
-    function isValidQuote(obj) {
+// ---- Utilities ----
+function isValidQuote(obj) {
     return obj && typeof obj === "object" &&
-            typeof obj.text === "string" && obj.text.trim().length > 0 &&
-            typeof obj.category === "string" && obj.category.trim().length > 0;
+        typeof obj.text === "string" && obj.text.trim().length > 0 &&
+        typeof obj.category === "string" && obj.category.trim().length > 0;
 }
 
 // Return unique categories
 function getCategories() {
     const seen = new Set();
     return quotes.reduce((acc, q) => {
-        if (!seen.has(q.category)) { seen.add(q.category); acc.push(q.category); }
+        const trimmedCat = q.category.trim();
+        if (!seen.has(trimmedCat)) { seen.add(trimmedCat); acc.push(trimmedCat); }
         return acc;
     }, []);
 }
@@ -125,10 +126,28 @@ function populateCategoryDropdown() {
         opt.textContent = cat;
         categorySelect.appendChild(opt);
     });
+
+    restoreLastSelectedFilter();
+}
+
+// ---- Category Filter Persistence ----
+function onCategoryChange() {
+    const selected = categorySelect.value;
+    localStorage.setItem(STORAGE_LAST_FILTER, selected); // ✅ remember
+    showRandomQuote();
+}
+
+function restoreLastSelectedFilter() {
+    const last = localStorage.getItem(STORAGE_LAST_FILTER);
+    if (last && [...categorySelect.options].some(o => o.value === last)) {
+        categorySelect.value = last;
+    } else {
+        categorySelect.value = "all";
+    }
 }
 
 // ---- Quote Display ----
-function showRandomQuote() {
+function filterQuotes() {
     const selectedCategory = categorySelect.value;
     let filtered = quotes;
     if (selectedCategory && selectedCategory !== "all") {
@@ -140,7 +159,6 @@ function showRandomQuote() {
         return;
     }
 
-    // pick random
     const idx = Math.floor(Math.random() * filtered.length);
     const q = filtered[idx];
     fadeText(`"${q.text}" — ${q.category}`);
@@ -187,10 +205,10 @@ function createAddQuoteForm() {
         const text = quoteInput.value.trim();
         const category = categoryInput.value.trim();
         if (!text || !category) {
-        message.textContent = "Please fill both fields.";
-        message.style.color = "red";
-        setTimeout(() => message.textContent = "", 2000);
-        return;
+            message.textContent = "Please fill both fields.";
+            message.style.color = "red";
+            setTimeout(() => message.textContent = "", 2000);
+            return;
         }
         addQuote({ text, category }, true);
         quoteInput.value = "";
@@ -210,12 +228,12 @@ function addQuote(quoteObj, updateUI = false) {
     quotes.push({ text: quoteObj.text.trim(), category: quoteObj.category.trim() });
     saveQuotesToLocalStorage();
     if (updateUI) {
-        populateCategoryDropdown();
+        populateCategoryDropdown(); 
     }
 }
 
-// ===== Export to JSON =====
-    function exportToJson() {
+// ---- Export to JSON ----
+function exportToJson() {
     try {
         const blob = new Blob([JSON.stringify(quotes, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
@@ -240,37 +258,35 @@ function importFromJsonFile(event) {
     const reader = new FileReader();
     reader.onload = (ev) => {
         try {
-        const imported = JSON.parse(ev.target.result);
-        if (!Array.isArray(imported)) throw new Error("Imported JSON must be an array of quote objects.");
-        const valid = imported.filter(isValidQuote);
-        if (valid.length === 0) {
-            alert("No valid quotes found in the file.");
-            return;
-        }
-        // Optionally deduplicate by text+category
-        const existingSet = new Set(quotes.map(q => `${q.text}||${q.category}`));
-        const newOnes = [];
-        for (const q of valid) {
-            const key = `${q.text.trim()}||${q.category.trim()}`;
-            if (!existingSet.has(key)) {
-            newOnes.push({ text: q.text.trim(), category: q.category.trim() });
-            existingSet.add(key);
+            const imported = JSON.parse(ev.target.result);
+            if (!Array.isArray(imported)) throw new Error("Imported JSON must be an array of quote objects.");
+            const valid = imported.filter(isValidQuote);
+            if (valid.length === 0) {
+                alert("No valid quotes found in the file.");
+                return;
             }
-        }
-        if (newOnes.length === 0) {
-            alert("Import complete — no new quotes to add (duplicates ignored).");
-        } else {
-            quotes.push(...newOnes);
-            saveQuotesToLocalStorage();
-            populateCategoryDropdown();
-            alert(`Imported ${newOnes.length} new quote(s).`);
-        }
+            const existingSet = new Set(quotes.map(q => `${q.text}||${q.category}`));
+            const newOnes = [];
+            for (const q of valid) {
+                const key = `${q.text.trim()}||${q.category.trim()}`;
+                if (!existingSet.has(key)) {
+                    newOnes.push({ text: q.text.trim(), category: q.category.trim() });
+                    existingSet.add(key);
+                }
+            }
+            if (newOnes.length === 0) {
+                alert("Import complete — no new quotes to add (duplicates ignored).");
+            } else {
+                quotes.push(...newOnes);
+                saveQuotesToLocalStorage();
+                populateCategoryDropdown();
+                alert(`Imported ${newOnes.length} new quote(s).`);
+            }
         } catch (err) {
-        console.error("Import error:", err);
-        alert("Failed to import JSON. Make sure the file is a valid JSON array of {text, category} objects.");
+            console.error("Import error:", err);
+            alert("Failed to import JSON. Make sure the file is a valid JSON array of {text, category} objects.");
         } finally {
-        // reset file input so same file can be imported again if needed
-        importFileInput.value = "";
+            importFileInput.value = "";
         }
     };
     reader.onerror = () => {
