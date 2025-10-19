@@ -359,10 +359,15 @@ const simulatedServer = (() => {
 })();
 
 async function serverGetQuotes() {
+    const SERVER_URL = "https://jsonplaceholder.typicode.com/posts";
     if (SERVER_URL) {
         const res = await fetch(SERVER_URL);
         if (!res.ok) throw new Error("Failed fetching server quotes");
-        return await res.json();
+        const data = await res.json();
+        return data.slice(0, 10).map(post => ({ 
+            text: post.title, 
+            category: post.body.split(' ')[0] || "Misc" 
+        }));
     } else {
         return simulatedServer.getQuotes();
     }
