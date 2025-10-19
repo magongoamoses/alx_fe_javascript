@@ -23,9 +23,12 @@ const lastViewedSpan = document.getElementById("lastViewed");
 // ---- Application State ----
 let quotes = [];
 
-// ---- REQUIRED FOR GRADER: fetchQuotesFromServer ----
 async function fetchQuotesFromServer() {
     return await serverGetQuotes();
+}
+
+async function syncQuotes() {
+    return await syncWithServer({ pushLocal: true });
 }
 
 // ---- Initialization ----
